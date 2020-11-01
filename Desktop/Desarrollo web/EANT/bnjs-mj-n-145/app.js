@@ -3,9 +3,8 @@ const express = require ('express')
 const port = 1000
 const nodemailer = require("nodemailer");
 const joi = require('joi');
-const fileUpload = require('express-fileupload');
-const expressFileUpload = require (express-fileUpload)
-// const port2 = 2000
+const expressFileUpload = require ('express-fileUpload');
+const { dirname } = require('path');
 
 const app = express()
 // Variables de entorno, son variables que se guardan en la memoria del sistema. Con Node se accede a esas variables con el comando process.env
@@ -22,55 +21,62 @@ const miniOutlook = nodemailer.createTransport({
   });
 
 const schema = joi.object ({
-      nombre : joi.string().required(),
+      nombre : joi.required(),
+      apellido : joi.string().required(),
       email :joi.string().email({ minDomainSegments: 2, tlds: { allow: ['com', 'net']}}).required(),
       asunto : joi.number().integer().required(),
       mensaje : joi.string().required()
  })
 
 app.listen(port)
-app.use (express.urlencoded({ extended : true}))
-app.use (express.json())
+app.use (express.urlencoded({ extended : true}))// <--esto convierte de "application/x-www-form-urlencoded" a object
+app.use (express.json())// <-- Transformara de "application/json" a Object
 app.use(express.static('public'))
-app.use (expressFileUpload())
+app.use (expressFileUpload()) //<-- transforma de "multipart/form-data" a archivo
 
 
 app.post('/enviar', (req,res) => {
     const contacto = req.body
-    //console.log (req.files)
-    //const validate = schema.validate(contacto)
+    const {archivo} = req.files 
+
+    console.log(req.files)
+
+    const ubicacion = __dirname + "/public/uploads/" + archivo.name
+    
+    console.log ("Se va a guardar en :")
+    console.log (ubicacion)
+
+    archivo.mv(ubicacion, error => {
+        if (error){
+            console.log ("No se movio")
+        }
+    })
+
+    return res.end ("mira la consola")
+
     const {error, value} = schema.validate(contacto)
 
-    if(validate.error){
+    if(error){
         console.log(error)
-        res.end (error.detail[0].message)
+
+        const msg = {
+            error : error.details.map( e => {
+                console.log (e.mensaje)
+            })
+        }
+
+        res.end (error.details[0].message)
     } else {
         miniOutlook.sendMail({
             from: contacto.correo, // sender address
-            to: "matiasmigueljuan@gmail.com", // list of receivers
+            to: "arlene71@ethereal.email", //lista de los que reciben el mail
+            replyTo: contacto.correo,
             subject: `Asunto #${contacto.asunto}`, // Subject line
             html: `<blockquote>Asunto : #${contacto.mensaje}</blockquote>`, // html body
           });
         res.end ('Desde aqui vamos a enviar un email automatico')
     }
 })
-
-// const server = (req, res) => {
-//     fs.readFile('front/index.html', (error, content) => {
-//         if(error){
-//             res.writeHead(404, {'content-type' : 'text-plain'} )
-//             res.end ('salio mal')
-//         } else {
-//             res.writeHead(200, {'content-type' : 'text-html'})
-//             res.end (content)
-//         }
-//     })
-    
-// }
-
-// http.createServer(server).listen(port2)
-
-
 
 
 
